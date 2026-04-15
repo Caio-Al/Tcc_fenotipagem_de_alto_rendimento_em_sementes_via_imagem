@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FenôScan — Fenotipagem de Sementes</title>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --verde:     #1a6b45;
+    --verde-cl:  #2d9e68;
+    --verde-bg:  #e8f5ee;
+    --creme:     #f7f4ef;
+    --texto:     #1a1a18;
+    --cinza:     #6b6b67;
+    --borda:     #d4d0c8;
+    --vermelho:  #c0392b;
+    --card-bg:   #ffffff;
+    --radius:    12px;
+    --mono:      'DM Mono', monospace;
+    --display:   'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--display);
+    background: var(--creme);
+    color: var(--texto);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    background: var(--verde);
+    color: #fff;
+    padding: 20px 24px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--verde-cl);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-sub  { font-size: 10px; font-family: var(--mono); opacity: 0.7; letter-spacing: 1px; }
+
+  #status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccc;
+    transition: background 0.3s;
+  }
+  #status-dot.ok  { background: #4cd964; box-shadow: 0 0 8px #4cd96466; }
+  #status-dot.err { background: #ff3b30; }
+
+  main {
+    padding: 20px 16px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .config-bar {
+    background: var(--card-bg);
+    border: 1px solid var(--borda);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+  .config-bar span { color: var(--cinza); font-size: 11px; }
+  .config-bar input {
+    flex: 1;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--creme);
+    color: var(--texto);
+  }
+
+  .btn-small {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .instrucoes {
+    background: var(--verde-bg);
+    border-left: 3px solid var(--verde-cl);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--verde);
+    font-family: var(--mono);
+  }
+  .instrucoes strong {
+    font-weight: 500;
+    display: block;
+    margin-bottom: 4px;
+    font-family: var(--display);
+  }
+
+  .capture-card {
+    background: var(--card-bg);
+    border: 1.5px dashed var(--borda);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .camera-btn {
+    display: inline-block;
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 16px 32px;
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 12px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .camera-btn:active { transform: scale(0.98); }
+  .camera-btn:hover  { background: var(--verde-cl); }
+
+  #file-input { display: none; }
+
+  .upload-hint {
+    font-size: 12px;
+    color: var(--cinza);
+    font-family: var(--mono);
+    margin-top: 4px;
+  }
+
+  #preview-container { display: none; margin-bottom: 20px; }
+  #preview-container img {
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--borda);
+    max-height: 320px;
+    object-fit: contain;
+    background: #000;
+  }
+  .preview-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--cinza);
+    margin-bottom: 6px;
+  }
+
+  #btn-analisar {
+    display: none;
+    width: 100%;
+    background: var(--verde);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 18px;
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-bottom: 20px;
+    letter-spacing: -0.3px;
+  }
+  #btn-analisar:hover  { background: var(--verde-cl); }
+  #btn-analisar:disabled {
+    background: var(--borda);
+    color: var(--cinza);
+    cursor: not-allowed;
+  }
+
+  #loading { display: none; text-align: center; padding: 30px; }
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--borda);
+    border-top-color: var(--verde);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--cinza);
+  }
+
+  #resultado { display: none; }
+
+  .resultado-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .resultado-titulo { font-size: 22px; font-weight: 800; }
+
+  .resultado-total {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--cinza);
+    text-align: right;
+  }
+
+  .summary-actions {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .primary-btn,
+  .secondary-btn,
+  .ghost-btn {
+    width: 100%;
+    border-radius: var(--radius);
+    padding: 14px;
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .primary-btn {
+    background: var(--verde);
+    color: #fff;
+    border: none;
+  }
+
+  .secondary-btn {
+    border: 2px solid var(--verde);
+    color: var(--verde);
+    background: transparent;
+  }
+
+  .ghost-btn {
+    background: transparent;
+    border: 1px solid var(--borda);
+    color: var(--cinza);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .viewer-card,
+  .diagnostic-card,
+  .tabela-card,
+  .sementes-card {
+    background: var(--card-bg);
+    border: 1px solid var(--borda);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .section-subtitle {
+    font-size: 11px;
+    color: var(--cinza);
+    font-family: var(--mono);
+    margin-top: -6px;
+    margin-bottom: 12px;
+  }
+
+  .viewer-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    padding-bottom: 2px;
+  }
+
+  .viewer-tab {
+    border: 1px solid var(--borda);
+    background: var(--creme);
+    color: var(--texto);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .viewer-tab.active {
+    background: var(--verde);
+    color: #fff;
+    border-color: var(--verde);
+  }
+
+  #img-etapa-principal {
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--borda);
+    background: #000;
+    margin-bottom: 8px;
+    max-height: 340px;
+    object-fit: contain;
+  }
+
+  .viewer-caption {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--cinza);
+  }
+
+  .diagnostic-card summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .diagnostic-card summary::-webkit-details-marker { display: none; }
+
+  .diagnostic-grid,
+  .sementes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .diag-item,
+  .semente-item {
+    background: var(--creme);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 8px;
+  }
+
+  .diag-item img,
+  .semente-item img {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--borda);
+    background: #000;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    cursor: zoom-in;
+  }
+
+  .diag-label,
+  .semente-label {
+    margin-top: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--cinza);
+    text-align: center;
+  }
+
+  .tabela-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--borda);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  thead {
+    background: var(--verde);
+    color: #fff;
+  }
+
+  thead th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  tbody tr { border-bottom: 1px solid var(--borda); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: var(--creme); }
+  tbody td {
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .cor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cor-box {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+
+  .erro-box {
+    background: #fdf3f2;
+    border: 1px solid #f5c6c2;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--vermelho);
+    margin-bottom: 16px;
+  }
+
+  .empty-state {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--cinza);
+    text-align: center;
+    padding: 10px 0 2px;
+  }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 9999;
+  }
+
+  .lightbox.open { display: flex; }
+
+  .lightbox img {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #111;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    border: none;
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  @media (max-width: 420px) {
+    .resultado-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .resultado-total {
+      text-align: left;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌱</div>
+    <div>
+      <div class="logo-text">FenôScan</div>
+      <div class="logo-sub">FENOTIPAGEM DE SEMENTES</div>
+    </div>
+  </div>
+  <div id="status-dot" title="Status da API"></div>
+</header>
+
+<main>
+
+  <div class="config-bar">
+    <span>API:</span>
+    <input type="text" id="api-url" placeholder="http://192.168.x.x:5000">
+    <button class="btn-small" onclick="verificarStatus()">Testar</button>
+  </div>
+
+  <div class="instrucoes">
+    <strong>Como usar</strong>
+    1. Informe o IP do computador com a API acima<br>
+    2. Coloque as sementes na caixa com fundo branco<br>
+    3. Tire a foto com o celular posicionado acima<br>
+    4. Toque em “Analisar Sementes” para ver as etapas do processamento
+  </div>
+
+  <div class="capture-card">
+    <label class="camera-btn" for="file-input">📷 Fotografar Sementes</label>
+    <input type="file" id="file-input" accept="image/*" capture="environment">
+    <div class="upload-hint">Ou toque para escolher uma imagem da galeria</div>
+  </div>
+
+  <div id="preview-container">
+    <div class="preview-label">Imagem selecionada:</div>
+    <img id="preview-img" src="" alt="Preview">
+  </div>
+
+  <button id="btn-analisar" onclick="analisar()">🔬 Analisar Sementes</button>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Processando imagem...<br>Aguarde</div>
+  </div>
+
+  <div id="resultado">
+    <div class="resultado-header">
+      <div>
+        <div class="resultado-titulo">Resultado</div>
+      </div>
+      <div class="resultado-total" id="total-label"></div>
+    </div>
+
+    <div class="summary-actions">
+      <button class="secondary-btn" id="btn-pdf" onclick="baixarPDF()">📄 Baixar Relatório PDF</button>
+      <button class="ghost-btn" id="btn-nova" onclick="resetar()">↩ Nova análise</button>
+    </div>
+
+    <div class="viewer-card">
+      <div class="section-title">Etapas principais</div>
+      <div class="section-subtitle">Toque nas abas para alternar a visualização</div>
+
+      <div class="viewer-tabs" id="viewer-tabs"></div>
+      <img id="img-etapa-principal" src="" alt="Etapa principal">
+      <div class="viewer-caption" id="viewer-caption">Etapa principal</div>
+    </div>
+
+    <details class="diagnostic-card">
+      <summary>Ver etapas detalhadas do processamento</summary>
+      <div class="diagnostic-grid" id="diagnostic-grid"></div>
+    </details>
+
+    <div class="tabela-card">
+      <div class="section-title">Tabela de sementes</div>
+      <div class="tabela-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Área (px)</th>
+              <th>Compr. (px)</th>
+              <th>Larg. (px)</th>
+              <th>Circ.</th>
+              <th>Asp.</th>
+              <th>Cor RGB</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sementes-card">
+      <div class="section-title">Sementes isoladas</div>
+      <div class="section-subtitle">Toque em uma imagem para ampliar</div>
+      <div class="sementes-grid" id="sementes-grid"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="lightbox" id="lightbox" onclick="fecharLightbox(event)">
+  <button class="lightbox-close" type="button" onclick="fecharLightbox(event)">×</button>
+  <img id="lightbox-img" src="" alt="Imagem ampliada">
+</div>
+
+<script>
+let imagemSelecionada = null;
+let pdfUrl = null;
+
+const apiInput = document.getElementById("api-url");
+const urlSalva = localStorage.getItem("fenoscan_api_url");
+
+if (urlSalva) {
+  apiInput.value = urlSalva;
+} else if (window.location.protocol.startsWith("http")) {
+  apiInput.value = window.location.origin;
+}
+
+function getApiUrl() {
+  const url = apiInput.value.trim().replace(/\/$/, "");
+  if (!url) {
+    alert("Informe o endereço da API primeiro.");
+    return null;
+  }
+  localStorage.setItem("fenoscan_api_url", url);
+  return url;
+}
+
+function mostrar(id)  { document.getElementById(id).style.display = "block"; }
+function esconder(id) { document.getElementById(id).style.display = "none"; }
+
+async function verificarStatus() {
+  const url = getApiUrl();
+  if (!url) return;
+
+  const dot = document.getElementById("status-dot");
+  dot.className = "";
+
+  try {
+    const res = await fetch(`${url}/status`);
+    dot.className = res.ok ? "ok" : "err";
+  } catch {
+    dot.className = "err";
+    alert("Não foi possível conectar à API. Verifique o IP e se a API está rodando.");
+  }
+}
+
+window.addEventListener("load", () => {
+  if (apiInput.value) verificarStatus();
+});
+
+document.getElementById("file-input").addEventListener("change", function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  imagemSelecionada = file;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById("preview-img").src = ev.target.result;
+    mostrar("preview-container");
+  };
+  reader.readAsDataURL(file);
+
+  esconder("resultado");
+  mostrar("btn-analisar");
+  esconder("btn-pdf");
+  esconder("btn-nova");
+
+  removerErro();
+});
+
+async function analisar() {
+  const url = getApiUrl();
+  if (!url || !imagemSelecionada) return;
+
+  removerErro();
+
+  const btn = document.getElementById("btn-analisar");
+  btn.disabled = true;
+
+  esconder("btn-analisar");
+  esconder("resultado");
+  mostrar("loading");
+
+  try {
+    const formData = new FormData();
+    formData.append("imagem", imagemSelecionada);
+
+    const res = await fetch(`${url}/analisar`, {
+      method: "POST",
+      body: formData
+    });
+
+    const dados = await res.json();
+
+    esconder("loading");
+
+    if (!res.ok) {
+      mostrarErro(dados.erro || "Erro desconhecido.");
+      btn.disabled = false;
+      mostrar("btn-analisar");
+      return;
+    }
+
+    exibirResultado(dados);
+    btn.disabled = false;
+
+  } catch (err) {
+    esconder("loading");
+    mostrarErro("Falha de conexão: " + err.message);
+    btn.disabled = false;
+    mostrar("btn-analisar");
+  }
+}
+
+function exibirResultado(dados) {
+  pdfUrl = dados.pdf_url || null;
+
+  document.getElementById("total-label").textContent =
+    `${dados.total_sementes} semente(s) detectada(s)`;
+
+  montarViewerPrincipal(dados.imagens || {});
+  montarDiagnosticos(dados.imagens || {});
+  montarTabela(dados.sementes || []);
+  montarSementesIsoladas(dados.sementes || []);
+
+  mostrar("resultado");
+  mostrar("btn-pdf");
+  mostrar("btn-nova");
+
+  document.getElementById("resultado").scrollIntoView({ behavior: "smooth" });
+}
+
+function montarViewerPrincipal(imagens) {
+  const etapas = [
+    { key: "original",  label: "Original" },
+    { key: "cinza",     label: "Cinza" },
+    { key: "opening",   label: "Opening" },
+    { key: "marcacoes", label: "Marcações" }
+  ].filter(etapa => imagens[etapa.key]);
+
+  const tabs = document.getElementById("viewer-tabs");
+  const img = document.getElementById("img-etapa-principal");
+  const caption = document.getElementById("viewer-caption");
+
+  tabs.innerHTML = "";
+
+  if (!etapas.length) {
+    img.src = "";
+    caption.textContent = "Nenhuma imagem principal disponível.";
+    return;
+  }
+
+  etapas.forEach((etapa, index) => {
+    const btn = document.createElement("button");
+    btn.className = "viewer-tab";
+    btn.textContent = etapa.label;
+
+    btn.onclick = () => {
+      img.src = imagens[etapa.key];
+      img.onclick = () => abrirLightbox(imagens[etapa.key]);
+      caption.textContent = etapa.label;
+      document.querySelectorAll(".viewer-tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    };
+
+    tabs.appendChild(btn);
+
+    if (index === 0) {
+      btn.click();
+    }
+  });
+}
+
+function montarDiagnosticos(imagens) {
+  const grid = document.getElementById("diagnostic-grid");
+  grid.innerHTML = "";
+
+  const itens = [
+    ["blurred", "Blurred"],
+    ["thresh", "Threshold"],
+    ["thresh_filled", "Threshold preenchido"],
+    ["sure_bg", "Fundo seguro"],
+    ["dist_transform", "Distance transform"],
+    ["sure_fg", "Frente segura"],
+    ["unknown", "Região desconhecida"]
+  ];
+
+  const disponiveis = itens.filter(([key]) => imagens[key]);
+
+  if (!disponiveis.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhuma etapa detalhada disponível.</div>`;
+    return;
+  }
+
+  disponiveis.forEach(([key, label]) => {
+    const card = document.createElement("div");
+    card.className = "diag-item";
+    card.innerHTML = `
+      <img src="${imagens[key]}" alt="${label}">
+      <div class="diag-label">${label}</div>
+    `;
+
+    const img = card.querySelector("img");
+    img.onclick = () => abrirLightbox(imagens[key]);
+
+    grid.appendChild(card);
+  });
+}
+
+function montarTabela(sementes) {
+  const tbody = document.getElementById("tabela-body");
+  tbody.innerHTML = "";
+
+  if (!sementes.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;color:#6b6b67;">Nenhuma semente encontrada.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  sementes.forEach(s => {
+    const [r, g, b] = s.cor_rgb || [0, 0, 0];
+    const hex = "#" + [r, g, b].map(v => Number(v).toString(16).padStart(2, "0")).join("");
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${s.id}</td>
+        <td>${Number(s.area_px).toFixed(0)}</td>
+        <td>${Number(s.comprimento_px).toFixed(1)}</td>
+        <td>${Number(s.largura_px).toFixed(1)}</td>
+        <td>${Number(s.circularidade).toFixed(3)}</td>
+        <td>${Number(s.razao_aspecto).toFixed(2)}</td>
+        <td>
+          <div class="cor-chip">
+            <div class="cor-box" style="background:${hex}"></div>
+            ${r},${g},${b}
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function montarSementesIsoladas(sementes) {
+  const grid = document.getElementById("sementes-grid");
+  grid.innerHTML = "";
+
+  const comRecorte = sementes.filter(s => s.recorte_url);
+
+  if (!comRecorte.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">Nenhum recorte disponível.</div>`;
+    return;
+  }
+
+  comRecorte.forEach(s => {
+    const card = document.createElement("div");
+    card.className = "semente-item";
+    card.innerHTML = `
+      <img src="${s.recorte_url}" alt="Semente ${s.id}">
+      <div class="semente-label">Semente ${s.id}</div>
+    `;
+
+    const img = card.querySelector("img");
+    img.onclick = () => abrirLightbox(s.recorte_url);
+
+    grid.appendChild(card);
+  });
+}
+
+function baixarPDF() {
+  if (pdfUrl) {
+    window.open(pdfUrl, "_blank");
+    return;
+  }
+
+  const url = getApiUrl();
+  if (!url) return;
+  window.open(`${url}/relatorio`, "_blank");
+}
+
+function resetar() {
+  imagemSelecionada = null;
+  pdfUrl = null;
+
+  document.getElementById("file-input").value = "";
+  document.getElementById("preview-img").src = "";
+
+  esconder("preview-container");
+  esconder("btn-analisar");
+  esconder("resultado");
+  esconder("btn-pdf");
+  esconder("btn-nova");
+  esconder("loading");
+
+  document.getElementById("btn-analisar").disabled = false;
+
+  removerErro();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function mostrarErro(msg) {
+  removerErro();
+  const div = document.createElement("div");
+  div.className = "erro-box";
+  div.id = "erro-box";
+  div.textContent = "⚠ " + msg;
+  document.querySelector("main").insertBefore(div, document.getElementById("loading"));
+}
+
+function removerErro() {
+  const erro = document.getElementById("erro-box");
+  if (erro) erro.remove();
+}
+
+function abrirLightbox(src) {
+  if (!src) return;
+  document.getElementById("lightbox-img").src = src;
+  document.getElementById("lightbox").classList.add("open");
+}
+
+function fecharLightbox(event) {
+  event.stopPropagation();
+  document.getElementById("lightbox").classList.remove("open");
+  document.getElementById("lightbox-img").src = "";
+}
+
+document.addEventListener("keydown", function(event) {
+  if (event.key === "Escape") {
+    document.getElementById("lightbox").classList.remove("open");
+    document.getElementById("lightbox-img").src = "";
+  }
+});
+</script>
+
+</body>
+</html>

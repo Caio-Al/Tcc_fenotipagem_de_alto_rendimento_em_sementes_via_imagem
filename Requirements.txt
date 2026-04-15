@@ -1,0 +1,8 @@
+# Dependências originais do projeto
+opencv-python
+numpy
+fpdf
+
+# Novas dependências para o sistema web
+flask
+flask-cors
