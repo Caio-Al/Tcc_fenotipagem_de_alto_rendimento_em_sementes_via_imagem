@@ -15,6 +15,7 @@ class Semente:
         contorno,
         cor_rgb,
         caminho_recorte=None,
+        unidade="px"
     ):
         self.id_semente = id_semente
         self.area = area
@@ -26,13 +27,14 @@ class Semente:
         self.contorno = contorno
         self.cor_rgb = cor_rgb
         self.caminho_recorte = caminho_recorte
+        self.unidade = unidade 
 
         self.circularidade = (4 * np.pi * area) / (perimetro ** 2) if perimetro > 0 else 0
         self.razao_aspecto = comprimento / largura if largura > 0 else 0
 
 
 class ExtratorCaracteristicas:
-    def extrair_dados(self, img_original, contornos, limiar_area_min=100):
+    def extrair_dados(self, img_original, contornos, px_por_cm=None, limiar_area_min=100):
         lista_sementes = []
         contador = 0
 
@@ -64,17 +66,32 @@ class ExtratorCaracteristicas:
                 caminho_salvamento = f"resultados/sementes_isoladas/semente_{contador}.png"
                 cv2.imwrite(caminho_salvamento, semente_bgra)
 
+                if px_por_cm is not None:
+                    px_por_mm = px_por_cm / 10
+                    area_real      = area / (px_por_mm ** 2)
+                    perimetro_real = perimetro / px_por_mm
+                    comprimento_real = comprimento / px_por_mm
+                    largura_real     = largura / px_por_mm
+                    unidade = "mm"
+                else:
+                    area_real        = area
+                    perimetro_real   = perimetro
+                    comprimento_real = comprimento
+                    largura_real     = largura
+                    unidade = "px"
+
                 semente_obj = Semente(
                     contador,
-                    area,
-                    perimetro,
-                    largura,
-                    comprimento,
+                    area_real,
+                    perimetro_real,
+                    largura_real,
+                    comprimento_real,
                     int(cx),
                     int(cy),
                     contorno,
                     cor_rgb,
                     caminho_salvamento,
+                    unidade=unidade,
                 )
                 lista_sementes.append(semente_obj)
 

@@ -533,9 +533,17 @@
   </div>
 
   <div class="capture-card">
-    <label class="camera-btn" for="file-input">📷 Fotografar Sementes</label>
-    <input type="file" id="file-input" accept="image/*" capture="environment">
-    <div class="upload-hint">Ou toque para escolher uma imagem da galeria</div>
+    <button class="camera-btn" onclick="abrirModalCamera()">📷 Fotografar Sementes</button>
+    <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-top:10px;">
+      <div style="flex:1;height:1px;background:var(--borda);"></div>
+      <span style="font-size:11px;font-family:var(--mono);color:var(--cinza);">ou</span>
+      <div style="flex:1;height:1px;background:var(--borda);"></div>
+    </div>
+    <label class="camera-btn" for="file-input" style="background:transparent;border:2px solid var(--verde);color:var(--verde);margin-top:10px;display:block;text-align:center;padding:14px;border-radius:var(--radius);cursor:pointer;font-weight:600;">
+      🗂 Escolher da Galeria
+    </label>
+    <input type="file" id="file-input" accept="image/*">
+    <div class="upload-hint">Escolha uma imagem salva no dispositivo</div>
   </div>
 
   <div id="preview-container">
@@ -560,6 +568,8 @@
 
     <div class="summary-actions">
       <button class="secondary-btn" id="btn-pdf" onclick="baixarPDF()">📄 Baixar Relatório PDF</button>
+      <button class="secondary-btn" id="btn-sementes-zip" onclick="baixarSementesZip()">🌱 Baixar Imagens das Sementes</button>
+      <button class="secondary-btn" id="btn-diag-zip" onclick="baixarDiagnosticoZip()">🔬 Baixar Imagens de Diagnóstico</button>
       <button class="ghost-btn" id="btn-nova" onclick="resetar()">↩ Nova análise</button>
     </div>
 
@@ -724,18 +734,20 @@ async function analisar() {
 
 function exibirResultado(dados) {
   pdfUrl = dados.pdf_url || null;
-
   document.getElementById("total-label").textContent =
-    `${dados.total_sementes} semente(s) detectada(s)`;
-
+  `${dados.total_sementes} semente(s) detectada(s)`;
+  
+  const unidade = dados.escala?.unidade || "px";
   montarViewerPrincipal(dados.imagens || {});
   montarDiagnosticos(dados.imagens || {});
-  montarTabela(dados.sementes || []);
+  montarTabela(dados.sementes || [], unidade);
   montarSementesIsoladas(dados.sementes || []);
 
   mostrar("resultado");
   mostrar("btn-pdf");
   mostrar("btn-nova");
+  mostrar("btn-sementes-zip");
+  mostrar("btn-diag-zip");
 
   document.getElementById("resultado").scrollIntoView({ behavior: "smooth" });
 }
@@ -817,8 +829,18 @@ function montarDiagnosticos(imagens) {
   });
 }
 
-function montarTabela(sementes) {
+function montarTabela(sementes, unidade = "px") {
+  const thead = document.querySelector("table thead tr");
   const tbody = document.getElementById("tabela-body");
+  thead.innerHTML = `
+    <th>ID</th>
+    <th>Área (${unidade}²)</th>
+    <th>Compr. (${unidade})</th>
+    <th>Larg. (${unidade})</th>
+    <th>Circ.</th>
+    <th>Asp.</th>
+    <th>Cor RGB</th>
+  `;
   tbody.innerHTML = "";
 
   if (!sementes.length) {
@@ -837,21 +859,52 @@ function montarTabela(sementes) {
     tbody.innerHTML += `
       <tr>
         <td>${s.id}</td>
-        <td>${Number(s.area_px).toFixed(0)}</td>
-        <td>${Number(s.comprimento_px).toFixed(1)}</td>
-        <td>${Number(s.largura_px).toFixed(1)}</td>
+        <td>${Number(s.area).toFixed(unidade === "mm" ? 2 : 0)}</td>
+        <td>${Number(s.comprimento).toFixed(2)}</td>
+        <td>${Number(s.largura).toFixed(2)}</td>
         <td>${Number(s.circularidade).toFixed(3)}</td>
         <td>${Number(s.razao_aspecto).toFixed(2)}</td>
         <td>
           <div class="cor-chip">
             <div class="cor-box" style="background:${hex}"></div>
-            ${r},${g},${b}
+            ${Math.round(r)},${Math.round(g)},${Math.round(b)}
           </div>
         </td>
       </tr>
     `;
   });
+  const n = sementes.length;
+  const avg = (fn) => sementes.reduce((acc, s) => acc + fn(s), 0) / n;
+
+  const mArea  = avg(s => s.area);
+  const mComp  = avg(s => s.comprimento);
+  const mLarg  = avg(s => s.largura);
+  const mCirc  = avg(s => s.circularidade);
+  const mAsp   = avg(s => s.razao_aspecto);
+  const mR     = avg(s => (s.cor_rgb || [0,0,0])[0]);
+  const mG     = avg(s => (s.cor_rgb || [0,0,0])[1]);
+  const mB     = avg(s => (s.cor_rgb || [0,0,0])[2]);
+  const mHex = "#" + [mR, mG, mB].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+
+  tbody.innerHTML += `
+    <tr style="background:#e8f5ee; font-weight:600; border-top: 2px solid var(--verde);">
+      <td style="color:var(--verde);">Média</td>
+      <td>${mArea.toFixed(unidade === "mm" ? 2 : 0)}</td>
+      <td>${mComp.toFixed(2)}</td>
+      <td>${mLarg.toFixed(2)}</td>
+      <td>${mCirc.toFixed(3)}</td>
+      <td>${mAsp.toFixed(2)}</td>
+      <td>
+        <div class="cor-chip">
+          <div class="cor-box" style="background:${mHex}"></div>
+          ${Math.round(mR)},${Math.round(mG)},${Math.round(mB)}
+        </div>
+      </td>
+    </tr>
+  `;
 }
+
+
 
 function montarSementesIsoladas(sementes) {
   const grid = document.getElementById("sementes-grid");
@@ -890,6 +943,18 @@ function baixarPDF() {
   window.open(`${url}/relatorio`, "_blank");
 }
 
+function baixarSementesZip() {
+  const url = getApiUrl();
+  if (!url) return;
+  window.open(`${url}/download/sementes`, "_blank");
+}
+
+function baixarDiagnosticoZip() {
+  const url = getApiUrl();
+  if (!url) return;
+  window.open(`${url}/download/diagnostico`, "_blank");
+}
+
 function resetar() {
   imagemSelecionada = null;
   pdfUrl = null;
@@ -903,6 +968,8 @@ function resetar() {
   esconder("btn-pdf");
   esconder("btn-nova");
   esconder("loading");
+  esconder("btn-sementes-zip");
+  esconder("btn-diag-zip");
 
   document.getElementById("btn-analisar").disabled = false;
 
@@ -942,7 +1009,189 @@ document.addEventListener("keydown", function(event) {
     document.getElementById("lightbox-img").src = "";
   }
 });
+
+// ── Câmera ──────────────────────────────────────────────────────
+let streamCamera = null;
+let contagemTimer = null;
+const SEGUNDOS_CONTAGEM = 5;
+
+async function abrirModalCamera() {
+  const modal = document.getElementById("modal-camera");
+  const video = document.getElementById("camera-video");
+  const status = document.getElementById("camera-status");
+
+  modal.style.display = "flex";
+  status.textContent = "Abrindo câmera...";
+
+  try {
+    streamCamera = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1920 } },
+      audio: false
+    });
+    video.srcObject = streamCamera;
+    status.textContent = "📐 Posicione as sementes no campo de visão.\nToque em Fotografar quando estiver pronto.";
+    document.getElementById("btn-disparar").disabled = false;
+  } catch (err) {
+    status.textContent = "⚠ Não foi possível acessar a câmera: " + err.message;
+    document.getElementById("btn-disparar").disabled = true;
+  }
+}
+
+function cancelarCamera() {
+  pararStream();
+  clearInterval(contagemTimer);
+  document.getElementById("modal-camera").style.display = "none";
+  document.getElementById("contador-wrapper").style.display = "none";
+  document.getElementById("btn-disparar").disabled = false;
+  document.getElementById("btn-disparar").textContent = "📷 Fotografar";
+}
+
+function pararStream() {
+  if (streamCamera) {
+    streamCamera.getTracks().forEach(t => t.stop());
+    streamCamera = null;
+  }
+}
+
+function iniciarContagem() {
+  const wrapper  = document.getElementById("contador-wrapper");
+  const numero   = document.getElementById("contador-numero");
+  const circulo  = document.getElementById("contador-circulo");
+  const status   = document.getElementById("camera-status");
+  const btnDisp  = document.getElementById("btn-disparar");
+  const perimetro = 188.5; // 2π × 30
+
+  btnDisp.disabled = true;
+  btnDisp.textContent = "Aguarde...";
+  wrapper.style.display = "block";
+  status.textContent = "🔒 Coloque o celular na caixa e feche.\nA foto será tirada em:";
+
+  let restante = SEGUNDOS_CONTAGEM;
+  numero.textContent = restante;
+  circulo.style.strokeDashoffset = 0;
+
+  contagemTimer = setInterval(() => {
+    restante--;
+    numero.textContent = restante;
+
+    const progresso = (SEGUNDOS_CONTAGEM - restante) / SEGUNDOS_CONTAGEM;
+    circulo.style.strokeDashoffset = perimetro * progresso;
+
+    if (restante <= 0) {
+      clearInterval(contagemTimer);
+      tirarFoto();
+    }
+  }, 1000);
+}
+
+function tirarFoto() {
+  const video  = document.getElementById("camera-video");
+  const status = document.getElementById("camera-status");
+
+  // Som de clique
+  tocarClique();
+
+  // Captura o frame atual
+  const canvas = document.createElement("canvas");
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
+  canvas.toBlob(blob => {
+    const arquivo = new File([blob], "captura.jpg", { type: "image/jpeg" });
+    imagemSelecionada = arquivo;
+
+    // Mostra preview
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById("preview-img").src = ev.target.result;
+      mostrar("preview-container");
+    };
+    reader.readAsDataURL(arquivo);
+
+    pararStream();
+    document.getElementById("modal-camera").style.display = "none";
+    document.getElementById("contador-wrapper").style.display = "none";
+
+    esconder("resultado");
+    mostrar("btn-analisar");
+    removerErro();
+
+    status.textContent = "";
+  }, "image/jpeg", 0.95);
+}
+
+function tocarClique() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Clique mecânico sintético
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+    const data   = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.015));
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(1.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+  } catch (e) {
+    console.warn("Som não disponível:", e);
+  }
+}
 </script>
+
+<!-- Modal câmera -->
+<div id="modal-camera" style="
+  display:none;position:fixed;inset:0;background:#000;
+  z-index:9998;flex-direction:column;align-items:center;justify-content:center;">
+
+  <video id="camera-video" autoplay playsinline style="
+    width:100%;max-width:560px;max-height:70vh;object-fit:cover;border-radius:12px;"></video>
+
+  <div id="camera-status" style="
+    color:#fff;font-family:var(--mono);font-size:14px;
+    margin-top:16px;text-align:center;line-height:1.8;"></div>
+
+  <div id="contador-wrapper" style="
+    display:none;margin-top:12px;
+    width:72px;height:72px;position:relative;">
+    <svg width="72" height="72">
+      <circle cx="36" cy="36" r="30" fill="none" stroke="#ffffff33" stroke-width="5"/>
+      <circle id="contador-circulo" cx="36" cy="36" r="30" fill="none"
+        stroke="#4cd964" stroke-width="5"
+        stroke-dasharray="188.5" stroke-dashoffset="0"
+        stroke-linecap="round"
+        transform="rotate(-90 36 36)"/>
+    </svg>
+    <div id="contador-numero" style="
+      position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;color:#fff;font-size:26px;
+      font-family:var(--display);font-weight:800;"></div>
+  </div>
+
+  <div style="display:flex;gap:12px;margin-top:20px;">
+    <button onclick="cancelarCamera()" style="
+      background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);
+      color:#fff;border-radius:10px;padding:12px 24px;
+      font-family:var(--mono);font-size:13px;cursor:pointer;">
+      ✕ Cancelar
+    </button>
+    <button id="btn-disparar" onclick="iniciarContagem()" style="
+      background:var(--verde);border:none;color:#fff;
+      border-radius:10px;padding:12px 28px;
+      font-family:var(--display);font-size:15px;font-weight:700;cursor:pointer;">
+      📷 Fotografar
+    </button>
+  </div>
+</div>
 
 </body>
 </html>

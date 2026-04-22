@@ -12,6 +12,8 @@ e devolve JSON com:
 import os
 import time
 import base64
+import zipfile
+import io
 
 import cv2
 import numpy as np
@@ -85,7 +87,7 @@ def analisar():
     exportador = ExportadorRelatorio()
 
     try:
-        img_original, img_cinza, img_binarizada, contornos = processador.obter_contornos(caminho_temp)
+        img_original, img_cinza, img_binarizada, contornos, px_por_cm = processador.obter_contornos(caminho_temp)
     except Exception as e:
         return jsonify({"erro": f"Falha no processamento da imagem: {str(e)}"}), 500
 
@@ -93,7 +95,7 @@ def analisar():
     cv2.imwrite(os.path.join(RESULTADOS_DIR, "2_imagem_tons_cinza.jpg"), img_cinza)
     cv2.imwrite(os.path.join(RESULTADOS_DIR, "3_imagem_opening.jpg"), img_binarizada)
 
-    lista_sementes = extrator.extrair_dados(img_original, contornos)
+    lista_sementes = extrator.extrair_dados(img_original, contornos, px_por_cm=px_por_cm)
 
     img_marcacoes = img_original.copy()
     for s in lista_sementes:
@@ -116,18 +118,20 @@ def analisar():
     exportador.gerar_pdf(lista_sementes)
 
     timestamp = int(time.time())
+    unidade_atual = "mm" if px_por_cm else "px"
 
     sementes_json = []
     for s in lista_sementes:
         sementes_json.append({
             "id": s.id_semente,
-            "area_px": round(s.area, 2),
-            "perimetro_px": round(s.perimetro, 2),
-            "comprimento_px": round(s.comprimento, 2),
-            "largura_px": round(s.largura, 2),
+            "area": round(s.area, 2),
+            "perimetro": round(s.perimetro, 2),
+            "comprimento": round(s.comprimento, 2),
+            "largura": round(s.largura, 2),
             "circularidade": round(s.circularidade, 4),
             "razao_aspecto": round(s.razao_aspecto, 4),
             "cor_rgb": s.cor_rgb,
+            "unidade": s.unidade,
             "centro_x": s.centro_x,
             "centro_y": s.centro_y,
             "recorte_url": caminho_para_url(s.caminho_recorte, timestamp) if s.caminho_recorte else None,
@@ -149,6 +153,10 @@ def analisar():
 
     return jsonify({
         "total_sementes": len(lista_sementes),
+        "escala": {                                       
+            "px_por_cm": round(px_por_cm, 2) if px_por_cm else None,
+            "unidade": unidade_atual
+        },
         "sementes": sementes_json,
         "imagem_marcacoes_base64": img_base64,
         "imagens": imagens,
@@ -167,6 +175,39 @@ def baixar_relatorio():
 @app.route("/status", methods=["GET"])
 def status():
     return jsonify({"status": "ok", "mensagem": "API de fenotipagem ativa."})
+
+@app.route("/download/sementes", methods=["GET"])
+def download_sementes():
+    pasta = SEMENTES_DIR
+    if not os.path.exists(pasta) or not os.listdir(pasta):
+        return jsonify({"erro": "Nenhuma semente disponível."}), 404
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for arquivo in sorted(os.listdir(pasta)):
+            if arquivo.endswith(".png"):
+                zf.write(os.path.join(pasta, arquivo), arquivo)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True,
+                     download_name="sementes_isoladas.zip",
+                     mimetype="application/zip")
+
+
+@app.route("/download/diagnostico", methods=["GET"])
+def download_diagnostico():
+    pasta = DIAG_DIR
+    if not os.path.exists(pasta) or not os.listdir(pasta):
+        return jsonify({"erro": "Nenhum diagnóstico disponível."}), 404
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for arquivo in sorted(os.listdir(pasta)):
+            if arquivo.endswith(".jpg") or arquivo.endswith(".png"):
+                zf.write(os.path.join(pasta, arquivo), arquivo)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True,
+                     download_name="diagnostico.zip",
+                     mimetype="application/zip")
 
 
 if __name__ == "__main__":
